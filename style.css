@@ -603,6 +603,11 @@ body.theme-light .theme-icon--light { display: block; }
 .navbar__hamburger[aria-expanded="true"] .hamburger__bar:nth-child(2) { opacity: 0; transform: scaleX(0); }
 .navbar__hamburger[aria-expanded="true"] .hamburger__bar:nth-child(3) { transform: rotate(-45deg) translate(5px, -5px); }
 
+/* Mobile Currency Selector (inside hamburger menu) — hidden on desktop */
+.navbar__mobile-currency {
+  display: none;
+}
+
 /* --------------------------------------------------------------------------
    9. HERO SECTION
    -------------------------------------------------------------------------- */
@@ -2109,6 +2114,31 @@ dialog.modal[open] {
   .chart-card__body { padding: var(--sp-3); }
 
   .navbar__currency { display: none; }
+
+  .navbar__mobile-currency {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-4);
+    border-top: 1px solid var(--clr-border);
+    margin-top: var(--sp-2);
+  }
+  .navbar__mobile-currency svg {
+    width: 16px;
+    height: 16px;
+    color: var(--clr-text-muted);
+    flex-shrink: 0;
+  }
+  .navbar__mobile-currency-text {
+    font-size: var(--fs-sm);
+    font-weight: var(--fw-medium);
+    color: var(--clr-text-secondary);
+  }
+  .navbar__mobile-currency .navbar__currency {
+    display: inline-block;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
 }
 
 /* --------------------------------------------------------------------------

@@ -62,6 +62,17 @@
           <li><a href="#transactions" class="navbar__link" data-section="transactions">Transactions</a></li>
           <li><a href="#budget"       class="navbar__link" data-section="budget">Budget</a></li>
           <li><a href="#analytics"    class="navbar__link" data-section="analytics">Analytics</a></li>
+          <!-- Mobile Currency Selector (visible only ≤ 480px) -->
+          <li class="navbar__mobile-currency" aria-label="Currency selector">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 6v12"/><path d="M17.3 9.2H9a3 3 0 0 0 0 6h6a3 3 0 0 1 0 6H6.7"/></svg>
+            <span class="navbar__mobile-currency-text">Currency</span>
+            <select class="navbar__currency" id="mobile-currency-select" aria-label="Select currency">
+              <option value="INR">₹ INR</option>
+              <option value="USD">$ USD</option>
+              <option value="EUR">€ EUR</option>
+              <option value="GBP">£ GBP</option>
+            </select>
+          </li>
         </ul>
 
         <!-- Navbar Actions -->
@@ -143,7 +154,7 @@
             <!-- Hero Stats Strip -->
             <div class="hero__stats" role="list" aria-label="Quick stats">
               <div class="hero__stat" role="listitem">
-                <strong class="hero__stat-value" id="hero-stat-balance">₹0</strong>
+                <strong class="hero__stat-value" id="hero-stat-balance">--</strong>
                 <span class="hero__stat-label">Net Balance</span>
               </div>
               <div class="hero__stat-divider" aria-hidden="true"></div>
@@ -268,7 +279,7 @@
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>
                 </figure>
               </header>
-              <p class="summary-card__value" id="balance-amount">₹0.00</p>
+              <p class="summary-card__value" id="balance-amount">--</p>
               <p class="summary-card__change" id="balance-change">
                 <span class="summary-card__change-icon" aria-hidden="true"></span>
                 <span id="balance-change-text">vs last month</span>
@@ -283,7 +294,7 @@
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
                 </figure>
               </header>
-              <p class="summary-card__value" id="income-amount">₹0.00</p>
+              <p class="summary-card__value" id="income-amount">--</p>
               <p class="summary-card__change summary-card__change--positive" id="income-change">
                 <span class="summary-card__change-icon" aria-hidden="true">↑</span>
                 <span id="income-change-text">0% vs last month</span>
@@ -298,7 +309,7 @@
                   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/><polyline points="16 17 22 17 22 11"/></svg>
                 </figure>
               </header>
-              <p class="summary-card__value" id="expense-amount">₹0.00</p>
+              <p class="summary-card__value" id="expense-amount">--</p>
               <p class="summary-card__change summary-card__change--negative" id="expense-change">
                 <span class="summary-card__change-icon" aria-hidden="true">↑</span>
                 <span id="expense-change-text">0% vs last month</span>
@@ -388,7 +399,7 @@
                 <div class="form-group">
                   <label class="form-label" for="tx-amount">Amount <abbr title="required">*</abbr></label>
                   <div class="form-input-wrapper form-input-wrapper--prefix">
-                    <span class="form-prefix" id="currency-prefix" aria-hidden="true">₹</span>
+                    <span class="form-prefix" id="currency-prefix" aria-hidden="true">--</span>
                     <input
                       type="number"
                       class="form-input"
@@ -492,6 +503,7 @@
                     aria-label="Recurring interval"
                     hidden
                   >
+                    <option value="daily">Daily</option>
                     <option value="monthly">Monthly</option>
                     <option value="weekly">Weekly</option>
                     <option value="yearly">Yearly</option>
@@ -734,15 +746,15 @@
           <div class="budget__overview" aria-label="Budget overview" role="region">
             <div class="budget__overview-stat">
               <span class="budget__overview-label">Total Budget</span>
-              <strong class="budget__overview-value" id="budget-total-limit">₹0</strong>
+              <strong class="budget__overview-value" id="budget-total-limit">--</strong>
             </div>
             <div class="budget__overview-stat">
               <span class="budget__overview-label">Total Spent</span>
-              <strong class="budget__overview-value budget__overview-value--spent" id="budget-total-spent">₹0</strong>
+              <strong class="budget__overview-value budget__overview-value--spent" id="budget-total-spent">--</strong>
             </div>
             <div class="budget__overview-stat">
               <span class="budget__overview-label">Remaining</span>
-              <strong class="budget__overview-value budget__overview-value--remaining" id="budget-total-remaining">₹0</strong>
+              <strong class="budget__overview-value budget__overview-value--remaining" id="budget-total-remaining">--</strong>
             </div>
           </div>
 
@@ -835,7 +847,7 @@
                 ></canvas>
                 <!-- Chart Center Label (for donut) -->
                 <div class="chart-donut-center" aria-hidden="true">
-                  <span class="chart-donut-center__value" id="donut-center-value">₹0</span>
+                  <span class="chart-donut-center__value" id="donut-center-value">--</span>
                   <span class="chart-donut-center__label">Total Spent</span>
                 </div>
               </div>
@@ -896,7 +908,7 @@
                   </div>
 
                   <div class="form-group">
-                    <label class="form-label" for="goal-target-input">Target Amount (₹)</label>
+                    <label class="form-label" for="goal-target-input" id="goal-target-label">Target Amount</label>
                     <input
                       type="number"
                       class="form-input"
@@ -909,7 +921,7 @@
                   </div>
 
                   <div class="form-group">
-                    <label class="form-label" for="goal-current-input">Already Saved (₹)</label>
+                    <label class="form-label" for="goal-current-input" id="goal-current-label">Already Saved</label>
                     <input
                       type="number"
                       class="form-input"

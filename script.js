@@ -62,8 +62,8 @@ const ROWS_PER_PAGE = 8;
 
 /** Seed data shown when localStorage is empty */
 const SEED_TRANSACTIONS = [
-  { id: 'seed-1', type: 'income',  amount: 75000, category: 'salary',       description: 'Monthly salary',         date: formatDateForInput(getMonthOffset(-1, 1)),  recurring: true,  recurringInterval: 'monthly' },
-  { id: 'seed-2', type: 'expense', amount: 18000, category: 'rent',         description: 'Apartment rent',          date: formatDateForInput(getMonthOffset(-1, 2)),  recurring: true,  recurringInterval: 'monthly' },
+  { id: 'seed-1', type: 'income',  amount: 75000, category: 'salary',       description: 'Monthly salary',         date: formatDateForInput(getMonthOffset(-1, 1)),  recurring: true,  recurringInterval: 'monthly', recurringLastGenerated: formatDateForInput(getMonthOffset(0, 1)) },
+  { id: 'seed-2', type: 'expense', amount: 18000, category: 'rent',         description: 'Apartment rent',          date: formatDateForInput(getMonthOffset(-1, 2)),  recurring: true,  recurringInterval: 'monthly', recurringLastGenerated: formatDateForInput(getMonthOffset(0, 2)) },
   { id: 'seed-3', type: 'expense', amount: 4200,  category: 'food',         description: 'Grocery & dining',        date: formatDateForInput(getMonthOffset(0, 3)),   recurring: false, recurringInterval: null },
   { id: 'seed-4', type: 'expense', amount: 1500,  category: 'transport',    description: 'Metro & cab rides',       date: formatDateForInput(getMonthOffset(0, 5)),   recurring: false, recurringInterval: null },
   { id: 'seed-5', type: 'income',  amount: 12000, category: 'freelance',    description: 'Web dev project',         date: formatDateForInput(getMonthOffset(0, 6)),   recurring: false, recurringInterval: null },
@@ -361,6 +361,31 @@ const Transactions = {
     Storage.save();
     renderAll();
     UI.toast('Transaction deleted.', 'info');
+  },
+
+  /**
+   * Update an existing transaction by ID.
+   * @param {string} id
+   * @param {object} data - Updated fields
+   */
+  update(id, data) {
+    const idx = State.transactions.findIndex(tx => tx.id === id);
+    if (idx === -1) return;
+
+    State.transactions[idx] = {
+      ...State.transactions[idx],
+      type:              data.type,
+      amount:            parseFloat(data.amount),
+      category:          data.category,
+      description:       (data.description || '').trim() || getCategoryLabel(data.category),
+      date:              data.date,
+      recurring:         !!data.recurring,
+      recurringInterval: data.recurringInterval || null,
+    };
+
+    Storage.save();
+    renderAll();
+    UI.toast('Transaction updated! ✏️', 'success');
   },
 
   /**
@@ -979,7 +1004,7 @@ const GoalSim = {
       badgeEl.className = `goal-sim-result__badge ${onTrack ? 'on-track' : 'off-track'}`;
       badgeEl.textContent = onTrack
         ? `✅ You're on track for "${title}"!`
-        : `⚠️ You need ₹${formatAmount(needed - avgSavings)} more per month to hit your goal.`;
+        : `⚠️ You need ${formatAmount(needed - avgSavings)} more per month to hit your goal.`;
     }
 
     if (resultEl) resultEl.hidden = false;
@@ -987,7 +1012,213 @@ const GoalSim = {
 };
 
 /* ==========================================================================
-   10. RENDER TRANSACTION LIST
+   10. EDIT MODAL MODULE
+   ========================================================================== */
+
+const EditModal = {
+
+  /** Currently editing transaction ID */
+  _editingId: null,
+
+  /** Open the edit modal and populate with transaction data */
+  open(id) {
+    const tx = State.transactions.find(t => t.id === id);
+    if (!tx) return;
+
+    this._editingId = id;
+    const body = document.getElementById('edit-tx-modal-body');
+    if (!body) return;
+
+    const sym = currencySymbol();
+
+    // Build the edit form reusing existing form classes
+    body.innerHTML = `
+      <form class="tx-form" id="edit-tx-form" novalidate aria-label="Edit transaction form">
+        <div class="tx-type-toggle" role="group" aria-label="Transaction type">
+          <button type="button"
+            class="tx-type-toggle__btn${tx.type === 'expense' ? ' tx-type-toggle__btn--active' : ''}"
+            id="edit-type-expense-btn" data-type="expense"
+            aria-pressed="${tx.type === 'expense'}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/></svg>
+            Expense
+          </button>
+          <button type="button"
+            class="tx-type-toggle__btn${tx.type === 'income' ? ' tx-type-toggle__btn--active' : ''}"
+            id="edit-type-income-btn" data-type="income"
+            aria-pressed="${tx.type === 'income'}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+            Income
+          </button>
+        </div>
+        <input type="hidden" id="edit-tx-type" value="${tx.type}" />
+
+        <div class="tx-form__grid">
+          <div class="form-group">
+            <label class="form-label" for="edit-tx-amount">Amount <abbr title="required">*</abbr></label>
+            <div class="form-input-wrapper form-input-wrapper--prefix">
+              <span class="form-prefix">${sym}</span>
+              <input type="number" class="form-input" id="edit-tx-amount" name="amount"
+                placeholder="0.00" min="0.01" step="0.01" required value="${tx.amount}" />
+            </div>
+            <span class="form-error" id="edit-tx-amount-error" role="alert"></span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="edit-tx-category">Category <abbr title="required">*</abbr></label>
+            <select class="form-input form-select" id="edit-tx-category" name="category" required>
+              <option value="" disabled>Select category</option>
+              <optgroup label="Expenses">
+                <option value="food"${tx.category === 'food' ? ' selected' : ''}>🍔 Food &amp; Dining</option>
+                <option value="rent"${tx.category === 'rent' ? ' selected' : ''}>🏠 Rent &amp; Housing</option>
+                <option value="transport"${tx.category === 'transport' ? ' selected' : ''}>🚗 Transport</option>
+                <option value="utilities"${tx.category === 'utilities' ? ' selected' : ''}>💡 Utilities</option>
+                <option value="entertainment"${tx.category === 'entertainment' ? ' selected' : ''}>🎬 Entertainment</option>
+                <option value="health"${tx.category === 'health' ? ' selected' : ''}>🏥 Health &amp; Medical</option>
+                <option value="education"${tx.category === 'education' ? ' selected' : ''}>📚 Education</option>
+                <option value="shopping"${tx.category === 'shopping' ? ' selected' : ''}>🛍️ Shopping</option>
+                <option value="subscriptions"${tx.category === 'subscriptions' ? ' selected' : ''}>📱 Subscriptions</option>
+                <option value="other-expense"${tx.category === 'other-expense' ? ' selected' : ''}>📦 Other</option>
+              </optgroup>
+              <optgroup label="Income">
+                <option value="salary"${tx.category === 'salary' ? ' selected' : ''}>💼 Salary</option>
+                <option value="freelance"${tx.category === 'freelance' ? ' selected' : ''}>💻 Freelance</option>
+                <option value="investment"${tx.category === 'investment' ? ' selected' : ''}>📈 Investment</option>
+                <option value="gift"${tx.category === 'gift' ? ' selected' : ''}>🎁 Gift</option>
+                <option value="other-income"${tx.category === 'other-income' ? ' selected' : ''}>💰 Other Income</option>
+              </optgroup>
+            </select>
+            <span class="form-error" id="edit-tx-category-error" role="alert"></span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="edit-tx-date">Date <abbr title="required">*</abbr></label>
+            <input type="date" class="form-input" id="edit-tx-date" name="date" required value="${tx.date}" />
+            <span class="form-error" id="edit-tx-date-error" role="alert"></span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="edit-tx-description">Description</label>
+            <input type="text" class="form-input" id="edit-tx-description" name="description"
+              placeholder="e.g. Monthly grocery run" maxlength="120" value="${escapeAttr(tx.description)}" />
+            <span class="form-hint">Optional — up to 120 characters</span>
+          </div>
+
+          <div class="form-group form-group--checkbox">
+            <label class="form-checkbox-label" for="edit-tx-recurring">
+              <input type="checkbox" class="form-checkbox" id="edit-tx-recurring" name="recurring"
+                ${tx.recurring ? 'checked' : ''} />
+              <span class="form-checkbox-custom" aria-hidden="true"></span>
+              Mark as recurring
+            </label>
+            <select class="form-input form-select form-select--inline" id="edit-tx-recurring-interval"
+              name="recurringInterval" aria-label="Recurring interval" ${tx.recurring ? '' : 'hidden'}>
+              <option value="daily"${tx.recurringInterval === 'daily' ? ' selected' : ''}>Daily</option>
+              <option value="monthly"${tx.recurringInterval === 'monthly' ? ' selected' : ''}>Monthly</option>
+              <option value="weekly"${tx.recurringInterval === 'weekly' ? ' selected' : ''}>Weekly</option>
+              <option value="yearly"${tx.recurringInterval === 'yearly' ? ' selected' : ''}>Yearly</option>
+            </select>
+          </div>
+        </div>
+      </form>
+    `;
+
+    // Wire type toggle buttons within the modal
+    document.getElementById('edit-type-expense-btn')?.addEventListener('click', () => this._setType('expense'));
+    document.getElementById('edit-type-income-btn')?.addEventListener('click', () => this._setType('income'));
+
+    // Wire recurring checkbox within the modal
+    document.getElementById('edit-tx-recurring')?.addEventListener('change', function () {
+      const interval = document.getElementById('edit-tx-recurring-interval');
+      if (interval) interval.hidden = !this.checked;
+    });
+
+    UI.openModal('edit-tx-modal');
+  },
+
+  /** Toggle type within the edit modal */
+  _setType(type) {
+    const hidden = document.getElementById('edit-tx-type');
+    const expBtn = document.getElementById('edit-type-expense-btn');
+    const incBtn = document.getElementById('edit-type-income-btn');
+
+    if (hidden) hidden.value = type;
+    if (expBtn) {
+      expBtn.classList.toggle('tx-type-toggle__btn--active', type === 'expense');
+      expBtn.setAttribute('aria-pressed', String(type === 'expense'));
+    }
+    if (incBtn) {
+      incBtn.classList.toggle('tx-type-toggle__btn--active', type === 'income');
+      incBtn.setAttribute('aria-pressed', String(type === 'income'));
+    }
+  },
+
+  /** Validate and save the edited transaction */
+  save() {
+    if (!this._editingId) return;
+    if (!this._validate()) return;
+
+    const data = {
+      type:              document.getElementById('edit-tx-type')?.value              || 'expense',
+      amount:            document.getElementById('edit-tx-amount')?.value            || 0,
+      category:          document.getElementById('edit-tx-category')?.value          || '',
+      date:              document.getElementById('edit-tx-date')?.value              || '',
+      description:       document.getElementById('edit-tx-description')?.value       || '',
+      recurring:         document.getElementById('edit-tx-recurring')?.checked       || false,
+      recurringInterval: document.getElementById('edit-tx-recurring-interval')?.value || null,
+    };
+
+    Transactions.update(this._editingId, data);
+    this._editingId = null;
+    UI.closeModal('edit-tx-modal');
+  },
+
+  /** Validate edit form fields */
+  _validate() {
+    let valid = true;
+
+    const amount   = parseFloat(document.getElementById('edit-tx-amount')?.value);
+    const category = document.getElementById('edit-tx-category')?.value;
+    const date     = document.getElementById('edit-tx-date')?.value;
+
+    if (!amount || amount <= 0) {
+      setText('edit-tx-amount-error', 'Please enter a valid amount greater than 0.');
+      document.getElementById('edit-tx-amount')?.classList.add('is-invalid');
+      valid = false;
+    } else {
+      setText('edit-tx-amount-error', '');
+      document.getElementById('edit-tx-amount')?.classList.remove('is-invalid');
+    }
+
+    if (!category) {
+      setText('edit-tx-category-error', 'Please select a category.');
+      document.getElementById('edit-tx-category')?.classList.add('is-invalid');
+      valid = false;
+    } else {
+      setText('edit-tx-category-error', '');
+      document.getElementById('edit-tx-category')?.classList.remove('is-invalid');
+    }
+
+    if (!date) {
+      setText('edit-tx-date-error', 'Please select a date.');
+      document.getElementById('edit-tx-date')?.classList.add('is-invalid');
+      valid = false;
+    } else {
+      setText('edit-tx-date-error', '');
+      document.getElementById('edit-tx-date')?.classList.remove('is-invalid');
+    }
+
+    return valid;
+  },
+
+  /** Close without saving */
+  close() {
+    this._editingId = null;
+    UI.closeModal('edit-tx-modal');
+  },
+};
+
+/* ==========================================================================
+   11. RENDER TRANSACTION LIST
    ========================================================================== */
 
 const TxList = {
@@ -1058,6 +1289,13 @@ const TxList = {
         <td class="tx-row__amount ${amtCls}">${sign} ${formatAmount(tx.amount)}</td>
         <td>
           <div class="tx-row__actions">
+            <button
+              class="tx-row__action-btn tx-row__action-btn--edit"
+              data-action="edit"
+              data-id="${escapeAttr(tx.id)}"
+              aria-label="Edit transaction: ${escapeAttr(tx.description)}"
+              title="Edit"
+            >✏️</button>
             <button
               class="tx-row__action-btn tx-row__action-btn--delete"
               data-action="delete"
@@ -1173,14 +1411,17 @@ const UI = {
     }
   },
 
-  /** Update currency prefix in the form */
+  /** Update currency prefix in the form and Goal Simulator labels */
   updateCurrencyPrefix() {
     const sym = currencySymbol();
     setText('currency-prefix', sym);
-    // Also update all .form-prefix elements inside cards
+    // Update all .form-prefix elements inside cards
     document.querySelectorAll('.form-prefix').forEach(el => {
       el.textContent = sym;
     });
+    // Update Goal Simulator labels
+    setText('goal-target-label', `Target Amount (${sym})`);
+    setText('goal-current-label', `Already Saved (${sym})`);
   },
 
   /** Update footer storage usage */
@@ -1381,7 +1622,104 @@ const DataIO = {
 };
 
 /* ==========================================================================
-   14. MASTER RENDER
+   14. RECURRING TRANSACTIONS ENGINE
+   ========================================================================== */
+
+const RecurringEngine = {
+
+  /**
+   * Process all recurring transactions and auto-generate any due instances.
+   * Called once on app init.
+   * @returns {number} Number of new transactions generated.
+   */
+  processAll() {
+    const today = formatDateForInput(new Date());
+    const sources = State.transactions.filter(tx => tx.recurring && tx.recurringInterval);
+    let generated = 0;
+
+    sources.forEach(source => {
+      // Start from the last generated date, or the original transaction date
+      const startFrom = source.recurringLastGenerated || source.date;
+      const dueDates  = this._getDueDates(startFrom, today, source.recurringInterval);
+
+      dueDates.forEach(dateStr => {
+        // Duplicate check: skip if a transaction from this source already exists for this date
+        const exists = State.transactions.some(tx =>
+          tx.recurringSourceId === source.id && tx.date === dateStr
+        );
+        if (exists) return;
+
+        // Create the new transaction instance
+        State.transactions.push({
+          id:                 'rec-' + Date.now() + '-' + (++generated) + '-' + Math.random().toString(36).slice(2, 6),
+          type:               source.type,
+          amount:             source.amount,
+          category:           source.category,
+          description:        source.description,
+          date:               dateStr,
+          recurring:          false,
+          recurringInterval:  null,
+          recurringSourceId:  source.id,
+          autoGenerated:      true,
+          createdAt:          new Date().toISOString(),
+        });
+      });
+
+      // Advance the checkpoint so we don't regenerate on next load
+      if (dueDates.length > 0) {
+        source.recurringLastGenerated = dueDates[dueDates.length - 1];
+      }
+    });
+
+    if (generated > 0) Storage.save();
+    return generated;
+  },
+
+  /**
+   * Calculate all due dates between startFrom (exclusive) and endDate (inclusive).
+   * @param {string} startFrom - YYYY-MM-DD, the last date already handled
+   * @param {string} endDate   - YYYY-MM-DD, today
+   * @param {string} interval  - 'daily' | 'weekly' | 'monthly' | 'yearly'
+   * @returns {string[]} Array of YYYY-MM-DD date strings
+   */
+  _getDueDates(startFrom, endDate, interval) {
+    const dates   = [];
+    const end     = new Date(endDate + 'T23:59:59');
+    let   current = new Date(startFrom + 'T00:00:00');
+
+    // Advance to the first occurrence AFTER startFrom
+    current = this._advance(current, interval);
+
+    while (current <= end) {
+      dates.push(formatDateForInput(current));
+      current = this._advance(current, interval);
+      // Safety cap to prevent runaway loops (max 1 year of daily = 366)
+      if (dates.length >= 366) break;
+    }
+
+    return dates;
+  },
+
+  /**
+   * Advance a date by one interval step.
+   * @param {Date} date
+   * @param {string} interval
+   * @returns {Date} New date (does not mutate original)
+   */
+  _advance(date, interval) {
+    const next = new Date(date);
+    switch (interval) {
+      case 'daily':   next.setDate(next.getDate() + 1);         break;
+      case 'weekly':  next.setDate(next.getDate() + 7);         break;
+      case 'monthly': next.setMonth(next.getMonth() + 1);       break;
+      case 'yearly':  next.setFullYear(next.getFullYear() + 1); break;
+    }
+    return next;
+  },
+};
+
+/* ==========================================================================
+   15. MASTER RENDER
    ========================================================================== */
 
 /** Call all render functions in the correct order */
@@ -1424,6 +1762,8 @@ function attachEventListeners() {
     if (action === 'delete') {
       State.ui.pendingDeleteId = id;
       UI.openModal('confirm-delete-modal');
+    } else if (action === 'edit') {
+      EditModal.open(id);
     }
   });
 
@@ -1506,6 +1846,12 @@ function attachEventListeners() {
   document.getElementById('budget-modal-close')?.addEventListener('click',  () => UI.closeModal('budget-modal'));
   document.getElementById('budget-modal-backdrop')?.addEventListener('click', () => UI.closeModal('budget-modal'));
 
+  /* ── Edit Transaction Modal ── */
+  document.getElementById('edit-tx-modal-save')?.addEventListener('click', () => EditModal.save());
+  document.getElementById('edit-tx-modal-cancel')?.addEventListener('click', () => EditModal.close());
+  document.getElementById('edit-tx-modal-close')?.addEventListener('click', () => EditModal.close());
+  document.getElementById('edit-tx-modal-backdrop')?.addEventListener('click', () => EditModal.close());
+
   /* ── Goal Simulator ── */
   document.getElementById('goal-simulator-form')?.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -1533,12 +1879,23 @@ function attachEventListeners() {
   /* ── Theme Toggle ── */
   document.getElementById('theme-toggle-btn')?.addEventListener('click', () => UI.toggleTheme());
 
-  /* ── Currency Selector ── */
-  document.getElementById('currency-select')?.addEventListener('change', (e) => {
-    State.settings.currency = e.target.value;
+  /* ── Currency Selector (desktop + mobile sync) ── */
+  const handleCurrencyChange = (value, sourceId) => {
+    State.settings.currency = value;
     Storage.save();
     UI.updateCurrencyPrefix();
     renderAll();
+    // Sync the other selector
+    const desktopSel = document.getElementById('currency-select');
+    const mobileSel  = document.getElementById('mobile-currency-select');
+    if (desktopSel && desktopSel.id !== sourceId) desktopSel.value = value;
+    if (mobileSel  && mobileSel.id  !== sourceId) mobileSel.value  = value;
+  };
+  document.getElementById('currency-select')?.addEventListener('change', (e) => {
+    handleCurrencyChange(e.target.value, 'currency-select');
+  });
+  document.getElementById('mobile-currency-select')?.addEventListener('change', (e) => {
+    handleCurrencyChange(e.target.value, 'mobile-currency-select');
   });
 
   /* ── Hamburger ── */
@@ -1706,12 +2063,17 @@ function init() {
   // 1. Load persisted state from localStorage
   Storage.load();
 
-  // 2. Apply saved theme
+  // 2. Generate any due recurring transactions
+  const _recurringCount = RecurringEngine.processAll();
+
+  // 3. Apply saved theme
   UI.applyTheme();
 
-  // 3. Apply saved currency to the selector
+  // 3. Apply saved currency to both selectors
   const currSel = document.getElementById('currency-select');
+  const mobileCurrSel = document.getElementById('mobile-currency-select');
   if (currSel) currSel.value = State.settings.currency;
+  if (mobileCurrSel) mobileCurrSel.value = State.settings.currency;
   UI.updateCurrencyPrefix();
 
   // 4. Set today's date as default in the form
@@ -1734,6 +2096,11 @@ function init() {
 
   // 10. Initial navbar state
   UI.highlightNavLink();
+
+  // 11. Notify about auto-generated recurring transactions
+  if (_recurringCount > 0) {
+    UI.toast(`🔁 ${_recurringCount} recurring transaction${_recurringCount > 1 ? 's' : ''} auto-generated.`, 'info');
+  }
 
   console.log(
     '%c💰 FinSim Loaded',
